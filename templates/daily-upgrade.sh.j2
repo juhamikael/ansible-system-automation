@@ -1,0 +1,101 @@
+#!/bin/bash
+
+# Silence cron output
+exec 1>/dev/null 2>&1
+
+EMAIL={{ email }}
+TMPDIR="/tmp"
+LOGFILE="$TMPDIR/daily-report.html"
+NOW=$(date '+%A %d.%m.%Y klo %H:%M')
+UPTIME=$(uptime -p)
+LOADAVG=$(uptime | awk -F'load average:' '{ print $2 }' | sed 's/^ //')
+CPU_COUNT=$(nproc)
+HOSTNAME=$(hostname)
+LOCAL_IP=$(hostname -I | awk '{print $1}')
+ATTACHMENT="/var/log/unattended-upgrades/unattended-upgrades-dpkg.log"
+[ -f "$ATTACHMENT" ] || ATTACHMENT="/dev/null"
+
+REBOOT_REQUIRED=$( [ -f /var/run/reboot-required ] && \
+  echo '<span style="color: #e67e22;">⚠️ Yes – reboot required</span>' || \
+  echo '<span style="color: green;">✅ No – Everything is okay</span>' )
+
+DISK=$(df -h --output=source,size,used,avail,pcent,target | grep -vE 'tmpfs|overlay' | column -t)
+
+UPGRADED=$(grep -E "Packages that will be upgraded:|All upgrades installed" /var/log/unattended-upgrades/unattended-upgrades.log \
+  | tail -n 20 \
+  | sed -e 's/.*Packages that will be upgraded: /<li>📦 /' \
+        -e 's/.*All upgrades installed/<li>✅ All security updates installed<\/li>/' || echo "<li>ℹ️ No security updates</li>")
+
+UPGRADABLE=$(apt list --upgradable 2>/dev/null | grep -v "Listing..." | sed 's/\[.*\]//g')
+if [ -z "$UPGRADABLE" ]; then
+  MANUAL="<p>✅ No non-security updates available.</p>"
+else
+  MANUAL="<ul>"
+  while read -r line; do
+    MANUAL+="<li>🔧 $line</li>"
+  done <<< "$UPGRADABLE"
+  MANUAL+="</ul><p>💡 Run manually: <code>sudo apt upgrade</code></p>"
+fi
+
+cat <<EOF > "$LOGFILE"
+<html>
+  <body style="font-family: Arial, sans-serif; background: #f9f9f9; padding: 20px; color: #333;">
+    <div style="max-width: 640px; margin: auto; background: #fff; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
+      <h1 style="text-align: center; color: #2c3e50;">✅ System Report</h1>
+
+      <h2>🛡️ Overview</h2>
+      <p><strong>Date:</strong> $NOW</p>
+      <p><strong>Hostname:</strong> $HOSTNAME</p>
+      <p><strong>LAN IP:</strong> <code>$LOCAL_IP</code></p>
+
+      <h2>📦 Updated Packages</h2>
+      <ul>$UPGRADED</ul>
+
+      <h2>🌿 Manual Upgrades</h2>
+      $MANUAL
+
+      <h2>🔁 Reboot Required</h2>
+      <p>$REBOOT_REQUIRED</p>
+
+      <h2>📍 Disk Usage</h2>
+      <pre>$DISK</pre>
+
+      <h2>📈 CPU Load Average</h2>
+      <p><strong>$LOADAVG</strong> — this system has $CPU_COUNT cores. Load averages under $CPU_COUNT.00 indicate moderate usage.</p>
+
+      <h2>⏱ Uptime</h2>
+      <p>$UPTIME</p>
+    </div>
+  </body>
+</html>
+EOF
+
+BOUNDARY="====MSMTP-MULTIPART===="
+SUBJECT="✅ System Report $NOW"
+ATTACHNAME="$(basename "$ATTACHMENT")"
+
+{
+  echo "From: $EMAIL"
+  echo "To: $EMAIL"
+  echo "Subject: $SUBJECT"
+  echo "MIME-Version: 1.0"
+  echo "Content-Type: multipart/mixed; boundary=\"$BOUNDARY\""
+  echo
+  echo "--$BOUNDARY"
+  echo "Content-Type: text/html; charset=UTF-8"
+  echo "Content-Transfer-Encoding: 7bit"
+  echo
+  cat "$LOGFILE"
+  echo
+  echo "--$BOUNDARY"
+  echo "Content-Type: text/plain; name=\"$ATTACHNAME\""
+  echo "Content-Disposition: attachment; filename=\"$ATTACHNAME\""
+  echo "Content-Transfer-Encoding: base64"
+  echo
+  base64 "$ATTACHMENT"
+  echo "--$BOUNDARY--"
+} | msmtp "$EMAIL"
+
+echo "$(date '+%Y-%m-%d') | Uptime: $UPTIME | Reboot needed: $( [ -f /var/run/reboot-required ] && echo yes || echo no ) | Load: $LOADAVG" >> /var/log/weeklyreport.log
+
+rm -f "$LOGFILE"
