@@ -17,9 +17,15 @@ This Ansible setup automates the deployment of a system health report script. Th
 ├── playbook.yml                  # Main playbook
 ├── group_vars/
 │   └── local.yml.example         # Template for credentials
-├── templates/
-│   ├── daily-upgrade.sh.j2       # Email report script
-│   └── msmtprc.j2                # Mail config template
+├── inventories/
+│   └── local/hosts               # Inventory file (localhost)
+├── roles/
+│   └── system_report/
+│       ├── tasks/
+│       │   ├── main.yml
+│       ├── templates/
+│       │   ├── daily-upgrade.sh.j2
+│       │   └── msmtprc.j2
 ```
 
 ---
@@ -80,7 +86,7 @@ email: "your-email@gmail.com"
 app_password: "your-gmail-app-password"
 ```
 
-> ⚠️ Store secrets securely in production:
+> ⚠️ Store secrets securely in production:  
 > `ansible-vault encrypt group_vars/local.yml`
 
 ---
@@ -90,13 +96,13 @@ app_password: "your-gmail-app-password"
 If your user requires sudo password:
 
 ```bash
-ansible-playbook playbook.yml --ask-become-pass
+ansible-playbook -i inventories/local playbook.yml --ask-become-pass
 ```
 
 If your user has passwordless sudo:
 
 ```bash
-ansible-playbook playbook.yml
+ansible-playbook -i inventories/local playbook.yml
 ```
 
 This will:

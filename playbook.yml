@@ -1,0 +1,8 @@
+- name: Run all automation roles
+  hosts: local
+  become: yes
+  vars_files:
+    - group_vars/local.yml
+  roles:
+    - role: system_report
+      tags: system_report
