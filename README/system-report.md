@@ -14,18 +14,25 @@ This Ansible setup automates the deployment of a system health report script. Th
 ## 📁 Project Structure
 
 ```text
-├── playbook.yml                  # Main playbook
+├── playbook.yml
 ├── group_vars/
-│   └── local.yml.example         # Template for credentials
+│   └── local.yml.example
 ├── inventories/
-│   └── local/hosts               # Inventory file (localhost)
+│   └── local/
+│       └── hosts
 ├── roles/
 │   └── system_report/
 │       ├── tasks/
 │       │   ├── main.yml
-│       ├── templates/
-│       │   ├── daily-upgrade.sh.j2
-│       │   └── msmtprc.j2
+│       │   ├── install_msmtp.yml
+│       │   ├── create_msmtprc.yml
+│       │   ├── upload_script.yml
+│       │   └── schedule_cron.yml
+│       └── templates/
+│           ├── daily-upgrade.sh.j2
+│           └── msmtprc.j2
+└── README/
+    └── system-report.md
 ```
 
 ---
@@ -67,7 +74,7 @@ Verify installation:
 ansible --version
 ```
 
-Expected: output like `ansible [core ...]`
+Expected output: `ansible [core ...]`
 
 ---
 
@@ -93,23 +100,11 @@ app_password: "your-gmail-app-password"
 
 ## 🚀 How to Run
 
-If your user requires sudo password:
+To run only the system report role:
 
 ```bash
-ansible-playbook -i inventories/local playbook.yml --ask-become-pass
+ansible-playbook -i inventories/local playbook.yml --ask-become-pass --tags system_report
 ```
-
-If your user has passwordless sudo:
-
-```bash
-ansible-playbook -i inventories/local playbook.yml
-```
-
-This will:
-
-- Install `msmtp`
-- Create `.msmtprc` for both `root` and the current user
-- Upload and schedule the system report cron job (daily at 04:00)
 
 ---
 
