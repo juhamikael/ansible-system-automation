@@ -1,0 +1,5 @@
+# ⚠️ Example configuration file
+# Copy this file to local.yml and update values accordingly
+
+email: "your email"
+app_password: "app_password"
