@@ -1,0 +1,5 @@
+group_vars/local.yml
+*.retry
+*.log
+*.vault.yml
+*.env
